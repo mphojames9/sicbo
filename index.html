@@ -82,10 +82,17 @@
             border-radius: 8px;
             margin-bottom: 20px;
             display: flex;
-            align-items: center;
-            gap: 15px;
+            flex-direction: column;
+            gap: 10px;
             border: 1px solid #1f5231;
             overflow: hidden;
+        }
+
+        .history-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
         }
 
         .history-label {
@@ -97,12 +104,29 @@
             white-space: nowrap;
         }
 
+        .history-stats {
+            display: flex;
+            gap: 12px;
+            font-size: 0.85rem;
+            font-weight: bold;
+            background: rgba(0,0,0,0.3);
+            padding: 6px 12px;
+            border-radius: 6px;
+            border: 1px dashed #27633c;
+        }
+
+        .stat-s { color: #42a5f5; }
+        .stat-b { color: #ffa726; }
+        .stat-t { color: #ef5350; }
+        .stat-divider { color: #444; }
+
         .history-list {
             display: flex;
             gap: 8px;
             overflow-x: auto;
             flex-grow: 1;
             padding-bottom: 4px;
+            width: 100%;
         }
 
         .history-list::-webkit-scrollbar {
@@ -196,6 +220,17 @@
             background-color: #18462a;
         }
 
+        /* Pulsing Animation for Winning Cells */
+        @keyframes pulseWinCell {
+            0% { box-shadow: 0 0 5px #ffdf00; background-color: #18462a; border-color: #ffdf00; }
+            50% { box-shadow: 0 0 20px #ffdf00, inset 0 0 10px #ffdf00; background-color: #27633c; border-color: #fff; }
+            100% { box-shadow: 0 0 5px #ffdf00; background-color: #18462a; border-color: #ffdf00; }
+        }
+        .pulse-win {
+            animation: pulseWinCell 0.8s infinite;
+            z-index: 5;
+        }
+
         .bet-title {
             font-size: 0.9rem;
             font-weight: bold;
@@ -237,7 +272,7 @@
         .totals-row {
             grid-column: span 6;
             display: grid;
-            grid-template-columns: repeat(7, 1fr); /* Adjusted for 14 values perfectly */
+            grid-template-columns: repeat(7, 1fr); 
             gap: 10px;
         }
 
@@ -302,6 +337,7 @@
         .action-btns {
             display: flex;
             gap: 8px;
+            flex-wrap: wrap;
         }
         .btn-alt {
             background: #333;
@@ -312,8 +348,15 @@
             cursor: pointer;
             font-size: 0.9rem;
             font-weight: 500;
+            transition: all 0.2s ease;
         }
         .btn-alt:hover { background: #444; border-color: #ffdf00; }
+        .btn-auto-active {
+            background: #28a745 !important;
+            border-color: #ffdf00 !important;
+            color: #fff !important;
+            box-shadow: 0 0 10px rgba(40, 167, 69, 0.5);
+        }
 
         .log-msg {
             text-align: center;
@@ -336,8 +379,8 @@
             display: none;
         }
 
-        /* Win Visual Celebration Overlay */
-        .win-splash-overlay {
+        /* Universal Result Overlay */
+        .result-splash-overlay {
             position: fixed;
             top: 50%;
             left: 50%;
@@ -345,31 +388,27 @@
             background: rgba(10, 34, 19, 0.95);
             padding: 30px 60px;
             border-radius: 20px;
-            border: 3px solid #ffdf00;
+            border: 3px solid transparent;
             text-align: center;
             z-index: 10000;
             pointer-events: none;
             opacity: 0;
             visibility: hidden;
             transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-            box-shadow: 0 0 40px rgba(255, 223, 0, 0.6);
         }
-        .win-splash-overlay.show {
+        .result-splash-overlay.show {
             opacity: 1;
             visibility: visible;
             transform: translate(-50%, -50%) scale(1);
         }
-        .win-splash-overlay h2 {
-            color: #ffdf00;
+        .result-splash-overlay h2 {
             margin: 0;
             font-size: 2.3rem;
             text-transform: uppercase;
             letter-spacing: 2px;
-            text-shadow: 0 0 10px rgba(255,223,0,0.4);
         }
-        .win-splash-overlay .amount-text {
+        .result-splash-overlay .amount-text {
             font-size: 3.8rem;
-            color: #ffffff;
             font-weight: 900;
             margin: 15px 0 0 0;
             animation: pulseAmount 0.8s infinite alternate;
@@ -390,6 +429,9 @@
             .die { width: 48px; height: 48px; font-size: 2.4rem; }
             .totals-row { grid-template-columns: repeat(4, 1fr); }
             .controls { flex-direction: column; }
+            .action-btns { justify-content: center; }
+            .history-header { flex-direction: column; align-items: flex-start; gap: 8px; }
+            .history-stats { width: 100%; justify-content: center; box-sizing: border-box; }
         }
     </style>
 </head>
@@ -405,7 +447,6 @@
                 <div class="die" id="die2"><i class="fa-solid fa-dice-one"></i></div>
                 <div class="die" id="die3"><i class="fa-solid fa-dice-one"></i></div>
             </div>
-            
         </div>
 
         <div class="controls">
@@ -420,12 +461,22 @@
                 <button class="btn-alt" onclick="clearBets()">Clear</button>
                 <button class="btn-alt" onclick="rebet()">Rebet</button>
                 <button class="btn-alt" onclick="doubleBets()">Double</button>
+                <button class="btn-alt" id="btnAuto" onclick="toggleAutoRoll()">Auto: OFF</button>
                 <button class="btn-alt" style="border-color:#721c24; color:#ff4d4d;" onclick="clearHistory()">Reset Hist</button>
             </div>
         </div>
 
         <div class="history-section">
-            <div class="history-label">History (Last 1000):</div>
+            <div class="history-header">
+                <div class="history-label">History Log:</div>
+                <div class="history-stats">
+                    <span class="stat-s" id="stat-s">S: 0%</span>
+                    <span class="stat-divider">|</span>
+                    <span class="stat-b" id="stat-b">B: 0%</span>
+                    <span class="stat-divider">|</span>
+                    <span class="stat-t" id="stat-t">T: 0%</span>
+                </div>
+            </div>
             <div class="history-list" id="historyList"></div>
         </div>
 
@@ -564,9 +615,9 @@
         <div class="log-msg" id="logMessage">Place your chips on the board and click ROLL!</div>
     </div>
 
-    <div class="win-splash-overlay" id="winSplash">
-        <h2>You Won!</h2>
-        <div class="amount-text" id="winSplashAmount">+$0</div>
+    <div class="result-splash-overlay" id="resultSplash">
+        <h2></h2>
+        <div class="amount-text" id="resultSplashAmount"></div>
     </div>
     <canvas id="confettiCanvas"></canvas>
 
@@ -577,6 +628,7 @@
         let currentBets = {}; 
         let previousBets = null; 
         let isRolling = false;
+        let isAutoRolling = false; 
         
         let historyLog = JSON.parse(localStorage.getItem('sicbo_history')) || [];
 
@@ -722,6 +774,35 @@
             }
         }
 
+        function toggleAutoRoll() {
+            isAutoRolling = !isAutoRolling;
+            const btnAuto = document.getElementById('btnAuto');
+            
+            if (isAutoRolling) {
+                btnAuto.innerText = "Auto: ON";
+                btnAuto.classList.add('btn-auto-active');
+                
+                if (!isRolling) {
+                    if (Object.keys(currentBets).length === 0 && (!previousBets || Object.keys(previousBets).length === 0)) {
+                        document.getElementById('logMessage').innerText = "Place a bet or roll once first to start Auto-Roll.";
+                        toggleAutoRoll();
+                        return;
+                    }
+                    
+                    if (Object.keys(currentBets).length === 0) {
+                        rebet();
+                    }
+                    if (Object.keys(currentBets).length > 0) {
+                        rollDice();
+                    }
+                }
+            } else {
+                btnAuto.innerText = "Auto: OFF";
+                btnAuto.classList.remove('btn-auto-active');
+                document.getElementById('logMessage').innerText = "Auto-roll disabled.";
+            }
+        }
+
         function updateUI() {
             document.getElementById('balance').innerText = `$${balance}`;
 
@@ -744,10 +825,19 @@
 
         function updateHistoryUI() {
             const listEl = document.getElementById('historyList');
+            const statS = document.getElementById('stat-s');
+            const statB = document.getElementById('stat-b');
+            const statT = document.getElementById('stat-t');
             listEl.innerHTML = '';
 
-            if (historyLog.length === 0) {
+            const totalRounds = historyLog.length;
+            let countS = 0, countB = 0, countT = 0;
+
+            if (totalRounds === 0) {
                 listEl.innerHTML = '<span style="color:#5c8a6a; font-size:0.85rem; font-style:italic;">No past rounds played</span>';
+                statS.innerText = 'S: 0%';
+                statB.innerText = 'B: 0%';
+                statT.innerText = 'T: 0%';
                 return;
             }
 
@@ -758,15 +848,27 @@
                 if (item.type === 'T') {
                     badge.classList.add('badge-triple');
                     badge.innerText = `${item.total} (T)`;
+                    countT++;
                 } else if (item.type === 'S') {
                     badge.classList.add('badge-small');
                     badge.innerText = `${item.total} (S)`;
+                    countS++;
                 } else {
                     badge.classList.add('badge-big');
                     badge.innerText = `${item.total} (B)`;
+                    countB++;
                 }
                 listEl.appendChild(badge);
             });
+
+            // Calculate and display percentages
+            const pctS = ((countS / totalRounds) * 100).toFixed(1);
+            const pctB = ((countB / totalRounds) * 100).toFixed(1);
+            const pctT = ((countT / totalRounds) * 100).toFixed(1);
+
+            statS.innerText = `S: ${pctS}%`;
+            statB.innerText = `B: ${pctB}%`;
+            statT.innerText = `T: ${pctT}%`;
         }
 
         function rollDice() {
@@ -774,8 +876,11 @@
             
             if (Object.keys(currentBets).length === 0) {
                 document.getElementById('logMessage').innerText = "Please place a bet before rolling!";
+                if (isAutoRolling) toggleAutoRoll();
                 return;
             }
+
+            document.querySelectorAll('.pulse-win').forEach(el => el.classList.remove('pulse-win'));
 
             isRolling = true;
             document.getElementById('btnRoll').disabled = true;
@@ -819,7 +924,7 @@
             if (historyLog.length > 1000) historyLog.pop();
 
             localStorage.setItem('sicbo_history', JSON.stringify(historyLog));
-            updateHistoryUI();
+            updateHistoryUI(); // Update UI with latest stats and badges
 
             for (let betKey in currentBets) {
                 const amount = currentBets[betKey];
@@ -896,13 +1001,28 @@
 
                     if (matchCount > 0) {
                         won = true;
-                        // Single returns 1:1, Double returns 2:1, Triple returns 3:1 natively in this structure
                         payoutRatio = matchCount; 
                     }
                 }
 
                 if (won) {
                     totalWinnings += amount + (amount * payoutRatio);
+                    
+                    let type, val;
+                    if (betKey === 'small' || betKey === 'big' || betKey === 'any-triple') {
+                        type = betKey;
+                        val = null;
+                    } else {
+                        const dashIdx = betKey.indexOf('-');
+                        type = betKey.substring(0, dashIdx);
+                        val = betKey.substring(dashIdx + 1);
+                    }
+
+                    let selector = `.bet-cell[data-bet-type="${type}"]`;
+                    if (val) selector += `[data-val="${val}"]`;
+
+                    const winningCell = document.querySelector(selector);
+                    if (winningCell) winningCell.classList.add('pulse-win');
                 }
             }
 
@@ -912,16 +1032,31 @@
             
             if (netAmount > 0) {
                 logEl.innerHTML = `${matchLog} <span class="win-flash">You won $${netAmount}!</span>`;
-                triggerWinCelebration(netAmount);
             } else if (netAmount < 0) {
                 logEl.innerText = `${matchLog} You lost $${Math.abs(netAmount)}.`;
             } else {
                 logEl.innerText = `${matchLog} Push! Tied even on coverage.`;
             }
 
+            triggerResultCelebration(netAmount);
+
             previousBets = JSON.parse(JSON.stringify(currentBets));
             currentBets = {};
             updateUI();
+            
+            if (isAutoRolling) {
+                setTimeout(() => {
+                    if (isAutoRolling) {
+                        rebet();
+                        if (Object.keys(currentBets).length > 0) {
+                            rollDice();
+                        } else {
+                            toggleAutoRoll(); 
+                            document.getElementById('logMessage').innerText = "Auto stopped (Insufficient balance).";
+                        }
+                    }
+                }, 7000); 
+            }
         }
 
         function resizeConfettiCanvas() {
@@ -929,38 +1064,67 @@
             canvas.height = window.innerHeight;
         }
 
-        function triggerWinCelebration(amount) {
-            document.getElementById('winSplashAmount').innerText = `+$${amount}`;
-            const splash = document.getElementById('winSplash');
-            splash.classList.add('show');
-
-            resizeConfettiCanvas();
-            canvas.style.display = 'block';
-            confettiParticles = [];
-            confettiActive = true;
-
-            const colors = ['#ffdf00', '#e53935', '#1e88e5', '#43a047', '#8e24aa', '#ffeb3b', '#ffffff'];
+        function triggerResultCelebration(amount) {
+            const splash = document.getElementById('resultSplash');
+            const title = splash.querySelector('h2');
+            const amountText = document.getElementById('resultSplashAmount');
             
-            for (let i = 0; i < 150; i++) {
-                confettiParticles.push({
-                    x: Math.random() * canvas.width,
-                    y: Math.random() * -canvas.height - 20,
-                    size: Math.random() * 6 + 4,
-                    speedY: Math.random() * 4 + 3,
-                    speedX: Math.random() * 3 - 1.5,
-                    color: colors[Math.floor(Math.random() * colors.length)],
-                    rotation: Math.random() * 360,
-                    rotationSpeed: Math.random() * 4 - 2
-                });
-            }
+            splash.className = 'result-splash-overlay show';
 
-            if (confettiAnimationId) cancelAnimationFrame(confettiAnimationId);
-            animateConfetti();
+            if (amount > 0) {
+                title.innerText = 'You Won!';
+                title.style.color = '#ffdf00';
+                title.style.textShadow = '0 0 10px rgba(255,223,0,0.4)';
+                splash.style.borderColor = '#ffdf00';
+                splash.style.boxShadow = '0 0 40px rgba(255, 223, 0, 0.6)';
+                amountText.innerText = `+$${amount}`;
+                amountText.style.color = '#ffffff';
+
+                resizeConfettiCanvas();
+                canvas.style.display = 'block';
+                confettiParticles = [];
+                confettiActive = true;
+
+                const colors = ['#ffdf00', '#e53935', '#1e88e5', '#43a047', '#8e24aa', '#ffeb3b', '#ffffff'];
+                for (let i = 0; i < 150; i++) {
+                    confettiParticles.push({
+                        x: Math.random() * canvas.width,
+                        y: Math.random() * -canvas.height - 20,
+                        size: Math.random() * 6 + 4,
+                        speedY: Math.random() * 4 + 3,
+                        speedX: Math.random() * 3 - 1.5,
+                        color: colors[Math.floor(Math.random() * colors.length)],
+                        rotation: Math.random() * 360,
+                        rotationSpeed: Math.random() * 4 - 2
+                    });
+                }
+                if (confettiAnimationId) cancelAnimationFrame(confettiAnimationId);
+                animateConfetti();
+
+            } else if (amount < 0) {
+                title.innerText = 'You Lost!';
+                title.style.color = '#ff4d4d';
+                title.style.textShadow = '0 0 10px rgba(255,77,77,0.4)';
+                splash.style.borderColor = '#ff4d4d';
+                splash.style.boxShadow = '0 0 40px rgba(255, 77, 77, 0.6)';
+                amountText.innerText = `-$${Math.abs(amount)}`;
+                amountText.style.color = '#ffb3b3';
+                canvas.style.display = 'none';
+            } else {
+                title.innerText = 'Push / Tie!';
+                title.style.color = '#a3cfb2';
+                title.style.textShadow = '0 0 10px rgba(163,207,178,0.4)';
+                splash.style.borderColor = '#a3cfb2';
+                splash.style.boxShadow = '0 0 40px rgba(163, 207, 178, 0.6)';
+                amountText.innerText = `$0`;
+                amountText.style.color = '#ffffff';
+                canvas.style.display = 'none';
+            }
 
             setTimeout(() => {
                 splash.classList.remove('show');
                 confettiActive = false;
-            }, 3000);
+            }, 5500);
         }
 
         function animateConfetti() {
